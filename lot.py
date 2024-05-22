@@ -63,6 +63,12 @@ class Lot(object):
             self.description == that.description and
             self.buydate == that.buydate and
             self.basis == that.basis)
+  # Adjusts cost basis and buy date by loss and holding period of 'loss'.
+  def absorb_loss(self, loss):
+    self.basis = self.basis + loss.basis - loss.proceeds
+    self.buydate = self.buydate - (loss.selldate - loss.buydate)
+    self.is_replacement = True
+    self.buy_lot += ',' + loss.buy_lot
   def has_sell(self):
     return self.selldate is not None
   @staticmethod
@@ -71,13 +77,16 @@ class Lot(object):
             'Basis', 'SellDate', 'Proceeds', 'AdjCode',
             'Adj', 'FormPosition', 'BuyLot', 'IsReplacement']
   def csv_row(self):
+    decimal_fmt = '%.02f'
     return [self.count, self.symbol, self.description,
             self.buydate.strftime('%m/%d/%Y'),
-            self.basis,
+            decimal_fmt % self.basis,
             None if self.selldate is None else \
             self.selldate.strftime('%m/%d/%Y'),
-            self.proceeds, self.code,
-            self.adjustment, self.form_position,
+            None if self.proceeds is None else decimal_fmt % self.proceeds,
+            self.code,
+            None if self.adjustment is None else decimal_fmt % self.adjustment,
+            self.form_position,
             self.buy_lot, 'True' if self.is_replacement else '']
   def __eq__(self, that):
     if not isinstance(that, self.__class__):
@@ -129,7 +138,7 @@ def load_lots(filepath):
   return ret
 
 def print_lots(lots):
-  print "Printing %d lots:" % len(lots)
+  print("Printing %d lots:" % len(lots))
   basis = 0
   proceeds = 0
   days = 0
@@ -139,7 +148,7 @@ def print_lots(lots):
   assert len(id_list) == len(set(id_list))
   # go through all lots
   for lot in lots:
-    print lot
+    print(lot)
     basis += lot.basis
     if lot.proceeds:
       proceeds += lot.proceeds
@@ -147,4 +156,4 @@ def print_lots(lots):
       adjustment += lot.adjustment
       if lot.adjustment != 0:
         assert(abs(lot.adjustment - (lot.basis - lot.proceeds)) < .0000001)
-  print "Totals: Basis %.2f Proceeds %.2f Adj: %.2f (basis-adj: %.2f)" % (basis, proceeds, adjustment, basis - adjustment)
+  print("Totals: Basis %.2f Proceeds %.2f Adj: %.2f (basis-adj: %.2f)" % (basis, proceeds, adjustment, basis - adjustment))
